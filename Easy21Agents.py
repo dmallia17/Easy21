@@ -104,14 +104,38 @@ class Easy21TabularAgent:
 
         return episode
 
-# Implements the On-policy first-visit MC control (for e-soft policies) on
-# page 101 of Sutton & Barto 
 class Easy21MC(Easy21TabularAgent):
-    def run(self, environment, num_episodes, n_zero=100):
-        # Easy 21 specific initialization
+    """
+    Implements the On-policy first-visit MC control (for e-soft
+    policies) on page 101 of Sutton & Barto (2nd edition). Inherits
+    from Easy21TabularAgent for tabular functionality.
+
+    Methods
+    -------
+    learn(environment, num_episodes, n_zero=100)
+        Executes Monte Carlo control on an Easy21Environment for the
+        prescribed number of episodes, utilizing a constant that
+        influences the e-greedy exploration policy evolution
+    """
+
+    def learn(self, environment, num_episodes, n_zero=100):
+        """
+        Implements Monte Carlo control, updating the agent's policy and
+        q estimates
+
+        Parameters
+        ----------
+        environment : Easy21Environment
+            An Easy21Environment instance
+        num_episodes : int
+            The number of episodes to generate
+        n_zero : int
+            The constant used to influence e-greedy exploration
+            policy evolution
+        """
+
+        # Easy21 assignment specific initialization
         num_state_visits = {state : 0 for state in self.get_all_states()}
-        # Must initialize to 1 to avoid division by zero? Not true if
-        # incrementing before updating
         num_state_action_visits = self.get_tab_q_func() 
 
         # Loop
@@ -138,7 +162,8 @@ class Easy21MC(Easy21TabularAgent):
                     num_state_action_visits[state_action_pair] += 1
                     num_state_visits[curr_state] += 1
 
-                    # Update estimate
+                    # Update estimate, using the "time-varying scalar
+                    # step-size"
                     self.q_estimates[state_action_pair] = \
                         self.q_estimates[state_action_pair] + \
                         (1 / num_state_action_visits[state_action_pair]) * \
