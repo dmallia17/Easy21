@@ -1,4 +1,7 @@
 import random
+from mpl_toolkits import mplot3d
+import matplotlib.pyplot as plt
+import numpy as np
 
 class Easy21TabularAgent:
     """
@@ -27,6 +30,8 @@ class Easy21TabularAgent:
     gen_episode(environment)
         Generates an episode using the passed environment and the
         current policy
+    plot_value_function()
+        Prepares a plot of the current state value function
     """
     def __init__(self, seed=None):
         """
@@ -103,6 +108,36 @@ class Easy21TabularAgent:
             episode.append(reward)
 
         return episode
+
+    def plot_value_function(self):
+        """
+        Prepares a plot of the current state value function (i.e. for
+        each state, the max over the values for choosing hit or stick)
+
+        Return
+        ------
+        A 3D Matplotlib figure
+        """
+        x,y,z = [], [], [] # Dealer cards, player cards, state values
+
+        for state in self.get_all_states():
+            x.append(state[0])
+            y.append(state[1])
+            z.append(max(self.q_estimates[(state,"hit")],
+                self.q_estimates[(state, "stick")]))
+
+        # Set up plot
+        fig = plt.figure(figsize=(10,10))
+        ax = plt.axes(projection='3d')
+        ax.set_xlabel("Dealer card")
+        ax.set_ylabel("Player card")
+        ax.set_zlabel("State value")
+
+        ax.plot_surface(
+            np.reshape(x,(10,21)), np.reshape(y,(10,21)),
+            np.reshape(z,(10,21)), cmap="viridis")
+
+        return fig
 
 class Easy21MC(Easy21TabularAgent):
     """
