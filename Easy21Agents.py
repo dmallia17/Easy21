@@ -104,3 +104,56 @@ class Easy21TabularAgent:
 
         return episode
 
+# Implements the On-policy first-visit MC control (for e-soft policies) on
+# page 101 of Sutton & Barto 
+class Easy21MC(Easy21TabularAgent):
+    def run(self, environment, num_episodes, n_zero=100):
+        # Easy 21 specific initialization
+        num_state_visits = {state : 0 for state in self.get_all_states()}
+        # Must initialize to 1 to avoid division by zero? Not true if
+        # incrementing before updating
+        num_state_action_visits = self.get_tab_q_func() 
+
+        # Loop
+        for episode in range(num_episodes):
+            curr_ep = self.gen_episode(environment)
+
+            # There is no discounting and no intermediate rewards so the
+            # return IS the last reward
+            curr_ep_g = curr_ep[-1]
+            curr_ep.pop()
+            # Strip zero intermediate rewards
+            curr_ep = [element
+                for element in curr_ep if type(element) is not int]
+
+            # Work backwards until whole episode has been processed
+            while len(curr_ep) > 0:
+
+                state_action_pair = curr_ep.pop()
+                if state_action_pair not in curr_ep:
+                    curr_state = state_action_pair[0]
+
+                    # Update number of times state and state-action pair have
+                    # been encountered
+                    num_state_action_visits[state_action_pair] += 1
+                    num_state_visits[curr_state] += 1
+
+                    # Update estimate
+                    self.q_estimates[state_action_pair] = \
+                        self.q_estimates[state_action_pair] + \
+                        (1 / num_state_action_visits[state_action_pair]) * \
+                        (curr_ep_g - self.q_estimates[state_action_pair])
+
+                    # Update policy
+                    hit_val = self.q_estimates[(curr_state,"hit")]
+                    stick_val = self.q_estimates[(curr_state,"stick")]
+                    a_star = "hit" if hit_val > stick_val else "stick"
+                    epsilon = n_zero / (n_zero + num_state_visits[curr_state])
+                    for act in self.actions:
+                        if act == a_star:
+                            self.policy[curr_state][act] = \
+                                1 - epsilon + (epsilon / 2)
+                        else:
+                            self.policy[curr_state][act] = epsilon / 2
+
+
