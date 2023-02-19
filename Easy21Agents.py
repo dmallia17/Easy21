@@ -258,6 +258,11 @@ class Easy21TD(Easy21TabularAgent):
         n_zero : int
             The constant used to influence e-greedy exploration
             policy evolution
+
+        Return
+        ------
+        A dictionary mapping episode (1-indexed) to MSE between self
+        and passed MC comparison agent; empty if MC agent is omitted
         """
 
         # Easy21 assignment specific initialization
