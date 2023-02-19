@@ -322,3 +322,28 @@ class Easy21TD(Easy21TabularAgent):
                         self.policy[curr_state][act] = epsilon / 2
 
                 curr_state, curr_action = next_state, next_action
+
+
+def compare_q_estimates(agent1, agent2):
+    """
+    Calculate the mean squared error (MSE) between the q estimates
+    of two agents
+
+    Parameters
+    ----------
+    agent1, agent2 : Easy21TabularAgent
+        Instances of Easy21TabularAgent or descendants with learned
+        estimates
+
+    Return
+    ------
+    float, the MSE between agent1 and agent2's q estimates
+    """
+
+    curr_sum = 0.0
+    n = 0
+    for sa_pair in agent1.q_estimates.keys():
+        curr_sum += \
+            ((agent1.q_estimates[sa_pair] - agent2.q_estimates[sa_pair]) ** 2)
+        n += 1
+    return (curr_sum / n)
