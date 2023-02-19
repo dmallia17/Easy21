@@ -1,4 +1,4 @@
-import random
+import math, random
 from mpl_toolkits import mplot3d
 import matplotlib.pyplot as plt
 import numpy as np
@@ -205,12 +205,20 @@ class Easy21MC(Easy21TabularAgent):
                         (curr_ep_g - self.q_estimates[state_action_pair])
 
                     # Update policy
-                    hit_val = self.q_estimates[(curr_state,"hit")]
-                    stick_val = self.q_estimates[(curr_state,"stick")]
-                    a_star = "hit" if hit_val > stick_val else "stick"
+                    # Note that because of the estimate > best_value check,
+                    # ties are always resolved in favor of the first action
+                    # encountered with an equal estimate
+                    # This is different from before, where the tie always
+                    # resolved in favor of "stick"
                     epsilon = n_zero / (n_zero + num_state_visits[curr_state])
+                    best_value, best_action = -math.inf, None
                     for act in self.actions:
-                        if act == a_star:
+                        estimate = self.q_estimates[(curr_state, act)]
+                        if estimate > best_value:
+                            best_value = estimate
+                            best_action = act
+                    for act in self.actions:
+                        if act == best_action:
                             self.policy[curr_state][act] = \
                                 1 - epsilon + (epsilon / 2)
                         else:
