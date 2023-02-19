@@ -217,3 +217,58 @@ class Easy21MC(Easy21TabularAgent):
                             self.policy[curr_state][act] = epsilon / 2
 
 
+class Easy21TD(Easy21TabularAgent):
+    def learn(self, environment, num_episodes, td_lambda, n_zero=100):
+        # Easy21 assignment specific initialization
+        num_state_visits = {state : 0 for state in self.get_all_states()}
+        num_state_action_visits = self.get_tab_q_func()
+
+        # Loop
+        for episode in range(num_episodes):
+            traces = self.get_tab_q_func()
+            curr_state = environment.get_start()
+            curr_action = self.get_action(curr_state)
+            while curr_state != "terminal":
+                # Update number of times state and state-action pair have
+                # been encountered
+                num_state_action_visits[(curr_state, curr_action)] += 1
+                num_state_visits[curr_state] += 1
+
+                reward, next_state = environment.step(curr_state, curr_action)
+
+                if next_state == "terminal":
+                    next_action = None
+                    # Q("terminal",a) is 0 for all a (i.e. stick or hit)
+                    q_sp_ap = 0
+                else:
+                    next_action = self.get_action(next_state)
+                    q_sp_ap = self.q_estimates[(next_state, next_action)]
+
+                error = reward + q_sp_ap - \
+                    self.q_estimates[(curr_state, curr_action)]
+
+                traces[(curr_state, curr_action)] += 1
+
+                # Update estimates
+                for sa_pair in list(self.q_estimates.keys()):
+                    cred_asst = traces[sa_pair]
+                    if cred_asst: # i.e. > 0
+                        self.q_estimates[sa_pair] += \
+                            (1 / num_state_action_visits[sa_pair]) * \
+                                error * cred_asst
+
+                        traces[sa_pair] *= td_lambda
+
+                # Update policy
+                hit_val = self.q_estimates[(curr_state,"hit")]
+                stick_val = self.q_estimates[(curr_state,"stick")]
+                a_star = "hit" if hit_val > stick_val else "stick"
+                epsilon = n_zero / (n_zero + num_state_visits[curr_state])
+                for act in self.actions:
+                    if act == a_star:
+                        self.policy[curr_state][act] = \
+                            1 - epsilon + (epsilon / 2)
+                    else:
+                        self.policy[curr_state][act] = epsilon / 2
+
+                curr_state, curr_action = next_state, next_action
