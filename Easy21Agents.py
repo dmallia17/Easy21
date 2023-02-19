@@ -218,14 +218,46 @@ class Easy21MC(Easy21TabularAgent):
 
 
 class Easy21TD(Easy21TabularAgent):
+    """
+    Implements the Sarsa(lambda) algorithm as described on slide 29 of David
+    Silver's "Lecture 5: Model-Free Control" slides, with the adjustments
+    needed to maintain an evolving e-greedy exploration and time-dependent
+    update step-size.
+
+    Methods
+    -------
+    learn(environment, num_episodes, td_lambda, n_zero=100)
+        Executes TD (Sarsa) control on an Easy21Environment for the
+        prescribed number of episodes, utilizing the passed lambda value in
+        controlling the eligibility traces and a constant that influences the
+        e-greedy exploration policy evolution
+    """
+
     def learn(self, environment, num_episodes, td_lambda, n_zero=100):
+        """
+        Implements TD (Sarsa) control, updating the agent's policy and
+        q estimates
+
+        Parameters
+        ----------
+        environment : Easy21Environment
+            An Easy21Environment instance
+        num_episodes : int
+            The number of episodes to generate
+        td_lambda : float
+            The constant used to update eligibility traces over an episode
+        n_zero : int
+            The constant used to influence e-greedy exploration
+            policy evolution
+        """
+
         # Easy21 assignment specific initialization
         num_state_visits = {state : 0 for state in self.get_all_states()}
         num_state_action_visits = self.get_tab_q_func()
 
         # Loop
         for episode in range(num_episodes):
-            traces = self.get_tab_q_func()
+            traces = self.get_tab_q_func() # Re-initialize traces
             curr_state = environment.get_start()
             curr_action = self.get_action(curr_state)
             while curr_state != "terminal":
@@ -234,6 +266,7 @@ class Easy21TD(Easy21TabularAgent):
                 num_state_action_visits[(curr_state, curr_action)] += 1
                 num_state_visits[curr_state] += 1
 
+                # Take action
                 reward, next_state = environment.step(curr_state, curr_action)
 
                 if next_state == "terminal":
@@ -244,15 +277,16 @@ class Easy21TD(Easy21TabularAgent):
                     next_action = self.get_action(next_state)
                     q_sp_ap = self.q_estimates[(next_state, next_action)]
 
+                # Calculate update
                 error = reward + q_sp_ap - \
                     self.q_estimates[(curr_state, curr_action)]
 
                 traces[(curr_state, curr_action)] += 1
 
-                # Update estimates
+                # Update estimates and traces
                 for sa_pair in list(self.q_estimates.keys()):
                     cred_asst = traces[sa_pair]
-                    if cred_asst: # i.e. > 0
+                    if cred_asst: # i.e. > 0, avoids division by zero
                         self.q_estimates[sa_pair] += \
                             (1 / num_state_action_visits[sa_pair]) * \
                                 error * cred_asst
