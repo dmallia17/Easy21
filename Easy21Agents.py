@@ -241,7 +241,8 @@ class Easy21TD(Easy21TabularAgent):
         e-greedy exploration policy evolution
     """
 
-    def learn(self, environment, num_episodes, td_lambda, n_zero=100):
+    def learn(self, environment, num_episodes, td_lambda, n_zero=100,
+        mc_comparison=None):
         """
         Implements TD (Sarsa) control, updating the agent's policy and
         q estimates
@@ -262,9 +263,11 @@ class Easy21TD(Easy21TabularAgent):
         # Easy21 assignment specific initialization
         num_state_visits = {state : 0 for state in self.get_all_states()}
         num_state_action_visits = self.get_tab_q_func()
+        episode_mse = {}
+        perform_comparison = mc_comparison is not None
 
         # Loop
-        for episode in range(num_episodes):
+        for episode in range(1,num_episodes+1):
             traces = self.get_tab_q_func() # Re-initialize traces
             curr_state = environment.get_start()
             curr_action = self.get_action(curr_state)
@@ -322,6 +325,11 @@ class Easy21TD(Easy21TabularAgent):
                         self.policy[curr_state][act] = epsilon / 2
 
                 curr_state, curr_action = next_state, next_action
+
+            if perform_comparison:
+                episode_mse[episode] = compare_q_estimates(self, mc_comparison)
+
+        return episode_mse
 
 
 def compare_q_estimates(agent1, agent2):
