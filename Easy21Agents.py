@@ -32,6 +32,8 @@ class Easy21TabularAgent:
         current policy
     plot_value_function()
         Prepares a plot of the current state value function
+    get_q_estimate(state_act)
+        Getter function for retrieving tabular q-value estimates
     """
     def __init__(self, seed=None):
         """
@@ -142,6 +144,10 @@ class Easy21TabularAgent:
             np.reshape(z,(10,21)), cmap="viridis")
 
         return fig
+
+    def get_q_estimate(self, state_act):
+        """Getter function for retrieving tabular q-value estimates"""
+        return self.q_estimates[state_act]
 
 class Easy21MC(Easy21TabularAgent):
     """
@@ -355,6 +361,18 @@ class Easy21Linear:
 
     Methods
     -------
+    get_state_act_vec(state_act)
+        Converts a state-action pair into a feature (row) vector heeding the
+        coarse coding scheme defined below.
+    predict(state_act)
+        Executes linear regression - predicting a q-value for a given
+        state-action pair.
+    get_action(state, ex_p=0.05)
+        Retrieve an action for the passed state, heeding the epsilon value
+        (ex_p) for controlling greedy behavior. This agent does not explicitly
+        maintain a policy as with the tabular agents (as we are not using a
+        tabular representation); instead it directly applies the e-greedy rule
+        of behaving randomly with probability ex_p, else greedily.
     learn(environment, num_episodes, td_lambda, ex_p=0.05,
         step=0.01, mc_comparison=None)
         Executes TD (Sarsa) control with linear function approximation on an
@@ -364,6 +382,16 @@ class Easy21Linear:
         weight updates; if an MC agent is passed for comparison, it measures
         the MSE between the q-values of the MC agent and the TD agent at the
         end of each episode
+    plot_value_function()
+        Prepares a plot of the current state value function (i.e. for
+        each state, the max over the values for choosing hit or stick). For
+        this agent, no explicit representation of the state value function is
+        maintained, but it may be recovered by iterating over all possible
+        states (which the agent does not "know" about elsewhere) and taking the
+        max over the predicted q-values.
+    get_q_estimate(state_act)
+        Getter function for retrieving linear function approximated q-value
+        estimates
     """
 
     def __init__(self, seed=None):
@@ -430,10 +458,7 @@ class Easy21Linear:
     def get_action(self, state, ex_p=0.05):
         """
         Retrieve an action for the passed state, heeding the epsilon value
-        (ex_p) for controlling greedy behavior. This agent does not explicitly
-        maintain a policy as with the tabular agents (as we are not using a
-        tabular representation); instead it directly applies the e-greedy rule
-        of behaving randomly with probability ex_p, else greedily.
+        (ex_p) for controlling greedy behavior.
 
         Parameters
         ----------
@@ -531,11 +556,7 @@ class Easy21Linear:
     def plot_value_function(self):
         """
         Prepares a plot of the current state value function (i.e. for
-        each state, the max over the values for choosing hit or stick). For
-        this agent, no explicit representation of the state value function is
-        maintained, but it may be recovered by iterating over all possible
-        states (which the agent does not "know" about elsewhere) and taking the
-        max over the predicted q-values.
+        each state, the max over the values for choosing hit or stick).
 
         Return
         ------
@@ -563,6 +584,11 @@ class Easy21Linear:
 
         return fig
 
+    def get_q_estimate(self, state_act):
+        """Getter function for retrieving linear function approximated q-value
+        estimates"""
+        return float(self.predict(state_act))
+
 
 def compare_q_estimates(agent1, agent2):
     """
@@ -571,9 +597,9 @@ def compare_q_estimates(agent1, agent2):
 
     Parameters
     ----------
-    agent1, agent2 : Easy21TabularAgent
-        Instances of Easy21TabularAgent or descendants with learned
-        estimates
+    agent1, agent2 : Easy21TabularAgent (or descendants) or Easy21Linear
+        Instances of Easy21TabularAgent (or descendants) or Easy21Linear with
+        learned estimates
 
     Return
     ------
@@ -582,8 +608,9 @@ def compare_q_estimates(agent1, agent2):
 
     curr_sum = 0.0
     n = 0
-    for sa_pair in agent1.q_estimates.keys():
+    for sa_pair in Easy21TabularAgent().q_estimates.keys():
         curr_sum += \
-            ((agent1.q_estimates[sa_pair] - agent2.q_estimates[sa_pair]) ** 2)
+            ((agent1.get_q_estimate(sa_pair) - \
+              agent2.get_q_estimate(sa_pair)) ** 2)
         n += 1
     return (curr_sum / n)
