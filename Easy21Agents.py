@@ -234,11 +234,13 @@ class Easy21TD(Easy21TabularAgent):
 
     Methods
     -------
-    learn(environment, num_episodes, td_lambda, n_zero=100)
+    learn(environment, num_episodes, td_lambda, n_zero=100, mc_comparison=None)
         Executes TD (Sarsa) control on an Easy21Environment for the
         prescribed number of episodes, utilizing the passed lambda value in
         controlling the eligibility traces and a constant that influences the
-        e-greedy exploration policy evolution
+        e-greedy exploration policy evolution; if an MC agent is passed for
+        comparison, it measures the MSE between the q-values of the MC
+        agent and the TD agent at the end of each episode
     """
 
     def learn(self, environment, num_episodes, td_lambda, n_zero=100,
@@ -258,6 +260,8 @@ class Easy21TD(Easy21TabularAgent):
         n_zero : int
             The constant used to influence e-greedy exploration
             policy evolution
+        mc_comparison : Easy21MC
+            Comparison MC agent to compare against for q-values
 
         Return
         ------
@@ -335,6 +339,151 @@ class Easy21TD(Easy21TabularAgent):
                 episode_mse[episode] = compare_q_estimates(self, mc_comparison)
 
         return episode_mse
+
+
+class Easy21Linear:
+    def __init__(self, seed=None):
+        """
+        Parameters
+        ----------
+        seed : int
+            A seed for the environment's RNG
+        """
+        self.actions = ("hit", "stick")
+        self.rng = random.Random(seed)
+        self.weights = np.zeros((36,1))
+        self.dealer_sums = (tuple(range(1,5)), tuple(range(4,8)),
+                            tuple(range(7,11)))
+        self.player_sums = (tuple(range(1,7)), tuple(range(4,10)),
+                            tuple(range(7,13)), tuple(range(10,16)),
+                            tuple(range(13,19)), tuple(range(16,22)))
+
+    def get_state_act_vec(self, state_act):
+        dealer_sum, player_sum = state_act[0]
+        act = state_act[1]
+
+        out = []
+        for ds in self.dealer_sums:
+            for ps in self.player_sums:
+                for a in self.actions:
+                    out.append(int((dealer_sum in ds) and \
+                                   (player_sum in ps) and (act in a)))
+
+        return np.array(out).reshape((1,36))
+
+    def predict(self, state_act):
+        return np.matmul(self.get_state_act_vec(state_act), self.weights)
+
+    def get_action(self, state, ex_p=0.05):
+        if self.rng.uniform(0,1) < ex_p:
+            return self.rng.choice(self.actions)
+        else:
+            best_value, best_action = -math.inf, None
+            for act in self.actions:
+                estimate = self.predict((state, act))
+                if estimate > best_value:
+                    best_value = estimate
+                    best_action = act
+            return best_action
+
+    def learn(self, environment, num_episodes, td_lambda, ex_p=0.05,
+        step=0.01, mc_comparison=None):
+        """
+        Implements
+
+        Parameters
+        ----------
+        environment : Easy21Environment
+            An Easy21Environment instance
+        num_episodes : int
+            The number of episodes to generate
+        td_lambda : float
+            The constant used to update eligibility traces over an episode
+        ex_p : float
+            The constant used to influence e-greedy exploration
+            policy evolution
+        step : float
+            Step size for updates
+        mc_comparison : Easy21MC
+            Comparison MC agent to compare against for q-values
+
+        Return
+        ------
+        A dictionary mapping episode (1-indexed) to MSE between self
+        and passed MC comparison agent; empty if MC agent is omitted
+        """
+
+        # Easy21 assignment specific initialization
+        episode_mse = {}
+        perform_comparison = mc_comparison is not None
+
+        # Loop
+        for episode in range(1,num_episodes+1):
+            traces = np.zeros((1,36))
+            curr_state = environment.get_start()
+            curr_action = self.get_action(curr_state, ex_p)
+            while curr_state != "terminal":
+                # Take action
+                reward, next_state = environment.step(curr_state, curr_action)
+
+                if next_state == "terminal":
+                    next_action = None
+                    # Q("terminal",a) is 0 for all a (i.e. stick or hit)
+                    q_sp_ap = 0
+                else:
+                    next_action = self.get_action(next_state)
+                    q_sp_ap = self.predict((next_state, next_action))
+
+                # Calculate error
+                error = reward + q_sp_ap - \
+                    self.predict((curr_state, curr_action))
+
+                # Update traces
+                traces += self.get_state_act_vec((curr_state, curr_action))
+
+                # Update weights
+                self.weights += (step * error * traces.T)
+
+                # Decay traces
+                traces *= td_lambda
+
+                curr_state, curr_action = next_state, next_action
+
+            if perform_comparison:
+                episode_mse[episode] = compare_q_estimates(self, mc_comparison)
+
+        return episode_mse
+
+    def plot_value_function(self):
+        """
+        Prepares a plot of the current state value function (i.e. for
+        each state, the max over the values for choosing hit or stick)
+
+        Return
+        ------
+        A 3D Matplotlib figure
+        """
+        x,y,z = [], [], [] # Dealer cards, player cards, state values
+        states = [(dealer_card, player_card)
+            for dealer_card in range(1,11) for player_card in range(1,22)]
+        for state in states:
+            x.append(state[0])
+            y.append(state[1])
+            z.append(max(self.predict((state,"hit")),
+                self.predict((state, "stick"))))
+
+        # Set up plot
+        fig = plt.figure(figsize=(10,10))
+        ax = plt.axes(projection='3d')
+        ax.set_xlabel("Dealer card")
+        ax.set_ylabel("Player card")
+        ax.set_zlabel("State value")
+
+        ax.plot_surface(
+            np.reshape(x,(10,21)), np.reshape(y,(10,21)),
+            np.reshape(z,(10,21)), cmap="viridis")
+
+        return fig
 
 
 def compare_q_estimates(agent1, agent2):
