@@ -79,6 +79,10 @@ class Easy21TabularAgent:
         ----------
         state : tuple
             A (dealer's sum, player's sum) tuple
+
+        Return
+        ------
+            An action, either "hit" or "stick"
         """
         possibilities = self.policy[state]
         return self.rng.choices(
@@ -342,6 +346,26 @@ class Easy21TD(Easy21TabularAgent):
 
 
 class Easy21Linear:
+    """
+    Implements the Sarsa(lambda) algorithm for linear function approximation
+    (and binary features) as spelled out on page 305 of Sutton & Barto (2nd
+    edition), and in David Silver's Lecture 6 slides. The Sutton & Barto
+    example essentially avoids vectorized code, but the below heeds Silver's
+    succinct description.
+
+    Methods
+    -------
+    learn(environment, num_episodes, td_lambda, ex_p=0.05,
+        step=0.01, mc_comparison=None)
+        Executes TD (Sarsa) control with linear function approximation on an
+        Easy21Environment for the prescribed number of episodes, utilizing the
+        passed lambda value in controlling the eligibility traces, a constant
+        (ex_p) to control e-greedy exploration and the passed step size for
+        weight updates; if an MC agent is passed for comparison, it measures
+        the MSE between the q-values of the MC agent and the TD agent at the
+        end of each episode
+    """
+
     def __init__(self, seed=None):
         """
         Parameters
@@ -351,7 +375,8 @@ class Easy21Linear:
         """
         self.actions = ("hit", "stick")
         self.rng = random.Random(seed)
-        self.weights = np.zeros((36,1))
+        self.weights = np.zeros((36,1)) # Linear weights
+        # Define the coarse coding scheme
         self.dealer_sums = (tuple(range(1,5)), tuple(range(4,8)),
                             tuple(range(7,11)))
         self.player_sums = (tuple(range(1,7)), tuple(range(4,10)),
@@ -359,6 +384,20 @@ class Easy21Linear:
                             tuple(range(13,19)), tuple(range(16,22)))
 
     def get_state_act_vec(self, state_act):
+        """
+        Converts a state-action pair into a feature (row) vector heeding the
+        coarse coding scheme defined above.
+
+        Parameters
+        ----------
+        state_act : tuple
+            A ((dealer's sum, player's sum), action) tuple
+
+        Return
+        ------
+        A numpy feature (row) vector for the state-action pair
+        """
+
         dealer_sum, player_sum = state_act[0]
         act = state_act[1]
 
@@ -372,9 +411,42 @@ class Easy21Linear:
         return np.array(out).reshape((1,36))
 
     def predict(self, state_act):
+        """
+        Executes linear regression - predicting a q-value for a given
+        state-action pair.
+
+        Parameters
+        ----------
+        state_act : tuple
+            A ((dealer's sum, player's sum), action) tuple
+
+        Return
+        ------
+        The predicted q-value (numpy array of size (1,1))
+        """
+
         return np.matmul(self.get_state_act_vec(state_act), self.weights)
 
     def get_action(self, state, ex_p=0.05):
+        """
+        Retrieve an action for the passed state, heeding the epsilon value
+        (ex_p) for controlling greedy behavior. This agent does not explicitly
+        maintain a policy as with the tabular agents (as we are not using a
+        tabular representation); instead it directly applies the e-greedy rule
+        of behaving randomly with probability ex_p, else greedily.
+
+        Parameters
+        ----------
+        state : tuple
+            A (dealer's sum, player's sum) tuple
+        ex_p : float
+            The epsilon value for e-greedy behavior
+
+        Return
+        ------
+        An action, either "hit" or "stick"
+        """
+
         if self.rng.uniform(0,1) < ex_p:
             return self.rng.choice(self.actions)
         else:
@@ -389,7 +461,8 @@ class Easy21Linear:
     def learn(self, environment, num_episodes, td_lambda, ex_p=0.05,
         step=0.01, mc_comparison=None):
         """
-        Implements
+        Implements the Sarsa(lambda) learning algorithm for linear function
+        approximation
 
         Parameters
         ----------
@@ -400,7 +473,7 @@ class Easy21Linear:
         td_lambda : float
             The constant used to update eligibility traces over an episode
         ex_p : float
-            The constant used to influence e-greedy exploration
+            The constant used to control e-greedy exploration
             policy evolution
         step : float
             Step size for updates
@@ -419,6 +492,7 @@ class Easy21Linear:
 
         # Loop
         for episode in range(1,num_episodes+1):
+            # Here traces is a vector
             traces = np.zeros((1,36))
             curr_state = environment.get_start()
             curr_action = self.get_action(curr_state, ex_p)
@@ -457,7 +531,11 @@ class Easy21Linear:
     def plot_value_function(self):
         """
         Prepares a plot of the current state value function (i.e. for
-        each state, the max over the values for choosing hit or stick)
+        each state, the max over the values for choosing hit or stick). For
+        this agent, no explicit representation of the state value function is
+        maintained, but it may be recovered by iterating over all possible
+        states (which the agent does not "know" about elsewhere) and taking the
+        max over the predicted q-values.
 
         Return
         ------
