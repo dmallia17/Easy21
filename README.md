@@ -7,12 +7,20 @@ here:
 https://www.davidsilver.uk/wp-content/uploads/2020/03/Easy21-Johannes.pdf
 
 ### Run instructions:
-You can obtain the below plots by running
+You can obtain the below plots by:
+
+1. Setting up a Python >=3.8.5 environment and installing numpy and matplotlib; for the packages one can use:
+```
+pip3 install -r requirements.txt
+```
+
+2. Running
 ```
 python3 LearnEasy21.py
 ```
 
-or explore the Development.ipynb notebook.
+In addition, you can explore the Development.ipynb notebook, which will require
+installation of Jupyter Notebook or JupyterLab.
 
 ### Results
 #### Monte-Carlo Control:
